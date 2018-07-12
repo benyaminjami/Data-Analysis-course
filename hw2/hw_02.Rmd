@@ -1,0 +1,190 @@
+---
+title: "second week: Introduction to R and Rstudio"
+subtitle: "Mobile Data"
+author: "benyamin jami al ahmadi 94105282"
+date: "`r Sys.time()`"
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+---
+
+<div align="center">
+<img  src="images/smartphones.jpg"  align = 'center'>
+</div>
+
+<h1 dir="RTL"> 
+تمرین سری دوم: تلفن همراه شناسی!
+</h1>
+
+> <p dir="RTL"> 
+ با استفاده از داده های گوشی های همراه به سوالات زیر پاسخ دهید. 
+برای رسم نمودار از پکیج 
+ggplot2
+استفاده کنید.
+</p>
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+library(readr)
+library(dplyr)
+library(ggplot2)
+mobile = read.csv("mobile_data.csv")
+```
+
+***
+
+<p dir="RTL">
+۱. کدام شرکت بیشترین تعداد گوشی را تولید کرده است؟
+نمودار ستونی ۲۰ شرکت برتر بر حسب تعداد گوشی تولید کرده را رسم کنید.
+</p>
+```{r,warning=FALSE}
+mobile %>% group_by(company) %>% summarise(count = n()) %>% arrange(-count) %>% head(20) %>% ggplot(aes(x = reorder(company,count), y = count)) + xlab('company') + geom_bar(,stat = 'identity') + coord_flip()
+```
+
+***
+
+<p dir="RTL">
+۲. نمودار زمانی طول عرض  ضخامت و کیفیت دوربین گوشی ها را بکشید
+ و به نمودار هر یک مدل خطی اضافه کنید.
+</p>
+```{r,warning=FALSE}
+coef = coef(lm(dim_length ~ year, data = mobile))
+ggplot(mobile,aes(x = year,y = (dim_length))) + geom_point(color = "blue") + geom_abline(intercept = coef[1], slope = coef[2]) + ylab('length')
+
+coef = coef(lm(dim_breadth ~ year, data = mobile))
+ggplot(mobile,aes(x = year,y = (dim_breadth))) + geom_point(color="blue") + geom_abline(intercept = coef[1], slope = coef[2]) + ylab('breadth')
+
+coef = coef(lm(dim_thickness ~ year, data = mobile))
+ggplot(mobile,aes(x = year,y = (dim_thickness))) + geom_point(color="blue") + geom_abline(intercept = coef[1], slope = coef[2]) + ylab('thickness')
+
+coef = coef(lm(cam_px ~ year, data = mobile))
+ggplot(mobile,aes(x = year,y = cam_px)) + geom_point(color="blue") + geom_abline(intercept = coef[1], slope = coef[2])+ylab('camera pixel')
+
+```
+
+***
+
+<p dir="RTL">
+۳. نمودار ستونی متوسط قیمت گوشی بر حسب تعداد سیم کارت و دسترسی به 
+LTE
+را رسم نمایید.
+</p>
+```{r,warning=FALSE}
+mobile %>% group_by(LTE,sim_no) %>% summarise(aveprice = mean(price,na.rm=T)) %>% 
+  ggplot(aes(x = sim_no,y = aveprice)) + geom_bar(stat = 'identity',aes(fill = LTE),position = 'dodge')
+
+```
+
+***
+
+<p dir="RTL">
+۴. نمودار جعبه ایی ضحامت گوشی هایی که در سال ۲۰۱۷ معرفی شده اند را برحسب اینکه کمیت جک هدفون رسم نمایید
+</p>
+```{r,warning=FALSE}
+mobile %>% filter(!is.na(audio_jack),year == 2017)%>% ggplot(aes(audio_jack,dim_thickness)) + geom_boxplot()
+
+```
+
+***
+
+<p dir="RTL">
+۵. مفهوم 
+ppi 
+را در گوشی های موبایل محاسبه و هیستوگرام آن را رسم نمایید.
+همچنین نمودار سالانه متوسط این کمیت را بکشید.
+کدام گوشی بیشترین
+ppi
+را دارد؟
+</p>
+```{r,warning=FALSE,message=FALSE}
+mobile %>% mutate(ppi = (px_row*px_col)/display_size) ->case5
+case5 %>% ggplot(aes(ppi)) + geom_histogram(binwidth = 10000)
+case5 %>% group_by(year,na.rm=T) %>% summarise(ave_ppi = mean(ppi,na.rm=T)) %>% ggplot(aes(year,ave_ppi)) + geom_line(color = "blue") + geom_point()
+case5[which.max(case5$ppi),1:2]
+
+```
+
+***
+
+<p dir="RTL">
+۶. در گذشته به بعضی از مدل های گوشی نوکیا 
+**گوشکوب**
+گفته می شد. سعی کنید برای این مفهوم کمیتی مناسب تعریف کنید .
+ ده گوشکوب برتر را پیدا کرده و نمودار گوشکوبیت آن را رسم نمایید.
+</p>
+$gushkubiat = \frac{thikness } {breadth \times length \times display_size} $
+```{r}
+mobile %>% filter(display_size > 2)%>% mutate(gushkubiat = dim_thickness/(dim_breadth * dim_length * display_size)) %>% filter(is.finite(gushkubiat)) %>% arrange(-gushkubiat) %>% head(10) %>% ggplot(aes(x = reorder(device , gushkubiat),y = gushkubiat)) + geom_point() + xlab('device')
+```
+
+
+***2
+
+<p dir="RTL">
+۷. آیا تلفن همراهی وجود دارد که در آب غرق نشود؟
+اگر جواب بله هست تمام گوشی های که این خاصیت را دارند بیابید.
+با کشیدن یک نمودار به این سوال پاسخ دهید.
+</p>
+```{r}
+mobile %>% mutate(den = 1000*weight/(dim_length*dim_thickness*dim_breadth)) %>% mutate(float = ifelse(den < 1,'Yes','no')) %>%  filter(den < 4) -> case4
+case4 %>% filter(float == "Yes") -> case42
+case4 %>% ggplot(aes(x = den,fill = float)) + geom_histogram(binwidth = 0.01) + geom_vline(xintercept = 1)
+```
+
+
+***
+
+<p dir="RTL">
+۸. نمودار پراکنش حجم ذخیره سازی باطری و وزن را رسم نمایید.
+میزان همبستگی بین این دو کمیت را محاسبه کنید.
+</p>
+```{r,warning=FALSE}
+mobile %>% ggplot(aes(x = battery_mah, y = weight)) + geom_point()
+mobile %>% filter(!is.na(battery_mah), !is.na(weight)) -> case8
+print("correlation coefficient = ")
+cor(case8$battery_mah, case8$weight, method = "pearson")
+
+```
+
+***
+
+<p dir="RTL">
+۹. قیمت پرچمداران یک برند خاص مثلا سامسونگ را بیابید و نمودار قیمت زمان و نام مدل را رسم نمایید.
+</p>
+```{r}
+mobile %>% filter(company == 'Apple',is.finite(price),display_size < 6,display_size > 2) %>% group_by(year) %>% summarise(price = max(price,na.rm=T),device = device[which(price == max(price,na.rm=T))]) %>%  ggplot(aes(x = year, y = price)) + geom_point() + geom_text(aes(label = device),hjust = +0.5,vjust = -0.5)
+```
+
+
+***
+
+<p dir="RTL">
+۱۰. سه نمودار جالب رسم کنید و توضیح دهید چرا از نظر شما جالب است؟
+</p>
+
+<p dir="RTL">
+الف)نمودار شرکت  های تولید کننده گوشی در هر سال.
+میتوان شرکت های تازه به وجود آمده و از بین رفته در هر سال را مشاهده کرد.
+</p>
+```{r,warning=FALSE}
+mobile %>% group_by(year,company) %>%  summarise(n = n()) %>% group_by(year) %>% summarise( n = n()) %>% ggplot(aes(x = year,y=n)) + geom_point() + geom_line()
+```
+
+
+<p dir="RTL">
+ب)نسبت صفحه نمایش به سطح گوشی 10 گوشی برتر در این زمینه.
+در حای حاضز نسبت مساحت صفحه نمایش به سطح گوشی معیار بسیار مهمی در زیبایی گوشی ها تبدیل شده.
+</p>
+
+```{r}
+mobile %>% filter(display_size < 7, display_size > 2,year > 2015) %>% mutate(display = (2.5^2*display_size^2*aspect_row*aspect_col * 100/(aspect_row^2+aspect_col^2) )/(dim_length * dim_breadth)) %>% arrange(-display) %>% head(10) %>%  ggplot(aes(x = reorder(device,display),y = display)) + geom_point() + xlab('device')
+```
+
+
+<p dir="RTL">
+ج)نسبت های ابعاد صفحه نمایش پر طرفدار در سال 2017
+این نسبت تاثیر زیادی بر زیبایی و خوش دستی گوشی دارد
+</p>
+```{r,warning=FALSE}
+mobile %>% filter(year == 2017)%>% mutate(ratio = paste(aspect_row,aspect_col,sep = ':')) %>% group_by(ratio) %>% summarise(count = n()) %>% ggplot(aes(reorder(ratio,count),count)) + geom_point() 
+```
+

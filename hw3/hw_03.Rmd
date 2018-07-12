@@ -1,0 +1,377 @@
+---
+title: "Third Week: Exploratory Data Analysis"
+subtitle: "LaLiga Analysis"
+author: "benyamin jami al ahmadi 94105282"
+date: "`r Sys.time()`"
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+---
+
+<div align="center">
+<img  src="images/laliga-lo.jpg"  align = 'center'>
+</div>
+
+<h1 dir="RTL"> 
+تمرین سری سوم: از لالیگا تا لیگ برتر
+</h1>
+
+> <p dir="RTL"> 
+با استفاده از داده های لیگ دسته اول اسپانیا به سوالات زیر پاسخ دهید.
+از هر دو ابزار
+ggplot2
+و
+highcharter
+برای این کار تصویرسازی استفاده نمایید.
+</p>
+
+***
+```{r,echo= FALSE,warning=FALSE,message=FALSE}
+library(ggplot2)
+library(dplyr)
+library(engsoccerdata)
+library(reshape2)
+library(highcharter)
+library(ggthemes)
+soc = as.tbl(spain)
+```
+
+<p dir="RTL">
+۱. تعداد قهرمانی های تیم ها در تاریخ لالیگا  را استخراج کرده و نمودار ستونی آنها را رسم کنید.
+</p>
+
+```{r}
+soc %>% select(Season,home,visitor,hgoal,vgoal) %>% 
+  bind_rows(select(.,Season,home = visitor,visitor = home,hgoal = vgoal,vgoal = hgoal)) %>% 
+  mutate(hscore = ifelse(hgoal > vgoal,3,ifelse(hgoal == vgoal,1,0)) , gd = hgoal - vgoal) %>% 
+  group_by(Season,home) %>% summarise(score = sum(hscore),gd = sum(gd)) %>% group_by(Season) %>% 
+  filter(score == max(score)) %>% group_by(Season) %>% filter(gd == max(gd)) %>% 
+  select(Season,team = home,score) -> soc1
+soc1 %>% group_by(team) %>% summarise(n= n()) %>% arrange(-n) -> soc12
+
+hchart(soc12,type = 'column',hcaes(x = team,y = n)) %>% hc_add_theme(hc_theme_ffx())
+
+ggplot(soc12,aes(reorder(team,n),n))+geom_bar(aes(fill = n),stat = 'identity')+coord_flip()+ theme_hc(bgcolor = "darkunica") + scale_colour_hc("darkunica") + ylab('count')+xlab('team')
+
+```
+
+
+***
+
+<p dir="RTL">
+۲. کسل کننده ترین لیگ و تیم را بیابید.
+نمودار ده تیم و ده فصل کسل کننده را رسم کنید.
+</p>
+
+```{r}
+soc %>% select(Season,home,visitor,hgoal,vgoal) %>% 
+  bind_rows(select(.,Season,home = visitor,visitor = home,hgoal = vgoal,vgoal = hgoal)) %>% 
+  group_by(home) %>% summarise(avegoal = sum(hgoal)/n()) %>% arrange(-avegoal) %>% 
+  filter(row_number()<11) ->soc21
+
+hchart(soc21,type = 'column',hcaes(x = home,y = avegoal)) %>% hc_add_theme(hc_theme_ffx())
+
+ggplot(soc21,aes(reorder(home,avegoal),avegoal))+geom_bar(aes(fill = avegoal),stat = 'identity')+coord_flip()+ theme_hc(bgcolor = "darkunica") + scale_colour_hc("darkunica") + ylab('count')+xlab('Season')
+
+
+soc %>% group_by(Season) %>% summarise(avegoal = (sum(hgoal) + sum(vgoal))/n()) %>% 
+  arrange(avegoal) %>% filter(row_number() < 11) ->soc22
+
+
+hchart(soc22,type = 'column',hcaes(x = Season,y = avegoal)) %>% hc_add_theme(hc_theme_ffx())
+
+ggplot(soc22,aes(reorder(Season,avegoal),avegoal))+geom_bar(aes(fill = avegoal),stat = 'identity')+coord_flip()+ theme_hc(bgcolor = "darkunica") + scale_colour_hc("darkunica") + ylab('count')+xlab('Season')
+
+```
+
+
+
+***
+
+<p dir="RTL">
+۳. در چند درصد موارد قهرمان نیم فصل در پایان فصل قهرمان شده است؟
+</p>
+```{r}
+soc %>% group_by(Season) %>% filter(row_number() <= n()/2) %>% select(Season,home,visitor,hgoal,vgoal) %>% 
+  bind_rows(select(.,Season,home = visitor,visitor = home,hgoal = vgoal,vgoal = hgoal)) %>% 
+  mutate(hscore = ifelse(hgoal > vgoal,3,ifelse(hgoal == vgoal,1,0)) , gd = hgoal - vgoal) %>% 
+  group_by(Season,home) %>% summarise(score = sum(hscore),gd = sum(gd), ga = sum(hgoal)) %>% 
+  group_by(Season) %>% filter(score == max(score)) %>% group_by(Season) %>%
+  filter(gd == max(gd)) %>% group_by(Season) %>% filter(ga == max(ga)) %>% 
+  select(Season,team = home) %>% full_join(select(soc1,Season,team),by='Season') %>% 
+  ungroup(Season) %>% summarise(sum(team.x == team.y) / n()) %>% as.numeric()
+
+```
+
+***
+
+<p dir="RTL">
+۴. در بین سال های ۲۰۰۱ تا ۲۰۱۰ گربه سیاه تیم های بزرگ چه تیم هایی بوده است؟
+</p>
+```{r}
+soc %>% filter(Season > 2000, Season < 2011) %>% select(Season,home,visitor,hgoal,vgoal) %>% 
+  bind_rows(select(.,Season,home = visitor,visitor = home,hgoal = vgoal,vgoal = hgoal)) -> soc4
+soc4 %>% filter(home == "FC Barcelona") %>% group_by(visitor) %>% 
+  summarise(lost = sum(vgoal > hgoal)) %>% arrange(-lost) %>% head(1) %>% as.character()
+soc4 %>% filter(home == "Real Madrid") %>% group_by(visitor) %>% 
+  summarise(lost = sum(vgoal > hgoal)) %>% arrange(-lost) %>% head(1) %>% as.character()
+soc4 %>% filter(home == "Valencia CF") %>% group_by(visitor) %>% 
+  summarise(lost = sum(vgoal > hgoal)) %>% arrange(-lost) %>% head(1) %>% as.character()
+soc4 %>% filter(home == "Atletico Madrid") %>% group_by(visitor) %>% 
+  summarise(lost = sum(vgoal > hgoal)) %>% arrange(-lost) %>% head(1) %>% as.character()
+soc4 %>% filter(home == "Sevilla FC") %>% group_by(visitor) %>% 
+  summarise(lost = sum(vgoal > hgoal)) %>% arrange(-lost) %>% head(1) %>% as.character()
+
+```
+<p dir="RTL">
+به ترتیب گربه سیاه بارسلونا،ریال مادرید،والنسیا،اتلتیکو مادرید و سویا
+</p>
+***
+
+<p dir="RTL">
+۵. در تاریخ لالیگا کدام تیم رکورددار زودترین قهرمانی است؟
+همچنین کدام تیم مقتدرانه ترین قهرمانی را داشته است؟
+</p>
+```{r,message=FALSE,warning=FALSE}
+max = 0
+sea = 0
+team = 0
+for(i in 1:89){
+  soc %>% filter(Season == 1927+i) %>% select(Date,home,visitor,hgoal,vgoal) %>% 
+    bind_rows(select(.,Date,home = visitor,visitor = home,hgoal = vgoal,vgoal = hgoal)) %>% 
+    mutate(hscore = ifelse(hgoal > vgoal,3,ifelse(hgoal == vgoal,1,0)) , gd = hgoal - vgoal) %>% 
+    arrange(Date) %>% mutate(week = floor((row_number() - 1) / nrow(distinct(.,home))+1)) -> soc5
+  week = as.numeric(soc5[nrow(soc5),8])
+  if(i+1927<1936 | i+1927>1938){
+    for(j in (week/2):week){
+      temp5 <- soc5 %>% filter(week <= j) %>% group_by(home) %>% summarise(score = sum(hscore),ga = sum(hgoal),gd = sum(gd)) %>% arrange(-score,-gd,-ga) %>% mutate(rank = row_number()) %>% arrange(-score)
+      if((as.numeric(temp5[1,2]) > as.numeric(temp5[2,2]) + 3 * (week - j)) && week - j > max){
+        max = week -j
+        sea = 1927+i
+        team = as.character(temp5[1,1])
+      }
+    }
+  }
+}
+as.character(paste(team,' ',sea,' ',max))
+```
+<p dir="RTL">
+بارسلونا در سال 1996 5 هفته مانده به پایان فصل قهرمان شده.
+</p>
+```{r,message=FALSE,warning=FALSE}
+maxdif = 0
+sea2 = 0
+for(i in 1:89){
+  soc %>% filter(Season == 1927+i) %>% select(Date,home,visitor,hgoal,vgoal) %>% bind_rows(select(.,Date,home = visitor,visitor = home,hgoal = vgoal,vgoal = hgoal)) %>% 
+    mutate(hscore = ifelse(hgoal > vgoal,3,ifelse(hgoal == vgoal,1,0)) , gd = hgoal - vgoal) %>% arrange(Date) %>% 
+    mutate(week = floor((row_number() - 1) / nrow(distinct(.,home))+1)) -> soc5
+  if(i+1927<1936 | i+1927>1938){
+    temp5 <- soc5 %>% group_by(home) %>% summarise(score = sum(hscore),ga = sum(hgoal),gd = sum(gd)) %>% arrange(-score,-gd,-ga) %>% mutate(rank = row_number()) %>% arrange(-score)
+    if((as.numeric(temp5[1,2]) - as.numeric(temp5[2,2]) > maxdif)){
+      maxdif = as.numeric(temp5[1,2]) - as.numeric(temp5[2,2])
+      sea2 = 1927+i
+      team = temp5[1,1]
+    }
+  }
+}
+as.character(paste(team,' ',sea2,' ',maxdif))
+```
+<p dir="RTL">
+ریال مادرید با 21 امتیاز اختلاف نسبت به تیم دوم در سال 1962 قهرمان شده.
+</p>
+
+***
+
+<p dir="RTL">
+۶. طولانی ترین نوار پیروزی مساوی و شکست مال چه تیم هایی است؟
+</p>
+```{r}
+win = matrix(nrow = 61,ncol = 13,0)
+temp = distinct(soc,home)
+rownames(win) = temp$home
+win[,1] = temp$home
+soc %>% select(Date,Season,home,visitor,hgoal,vgoal) %>% 
+  bind_rows(select(.,Date,Season,home = visitor,visitor = home,hgoal = vgoal,vgoal = hgoal)) %>%
+  arrange(Date) -> soc6
+for(i in 1:48590){
+  
+  ###W
+  if(as.numeric(soc6[i,5]) <= as.numeric(soc6[i,6]) | soc6[i,2] != win[soc6[[i,3]],2]){
+    if(as.numeric(win[soc6[[i,3]],3]) > as.numeric(win[soc6[[i,3]],5])){
+      win[soc6[[i,3]],4] = win[soc6[[i,3]],2]
+      win[soc6[[i,3]],5] = win[soc6[[i,3]],3]
+    }
+    win[soc6[[i,3]],2] = soc6[[i,2]]
+    win[soc6[[i,3]],3] = 0
+  }
+  if(as.numeric(soc6[i,5]) > as.numeric(soc6[i,6])){
+    win[[soc6[[i,3]],3]] = as.character(as.numeric(win[[soc6[[i,3]],3]]) + 1)  
+  }
+  
+  ###D
+  if(as.numeric(soc6[i,5]) != as.numeric(soc6[i,6]) | soc6[i,2] != win[soc6[[i,3]],6]){
+    if(as.numeric(win[soc6[[i,3]],7]) > as.numeric(win[soc6[[i,3]],9])){
+      win[soc6[[i,3]],8] = win[soc6[[i,3]],6]
+      win[soc6[[i,3]],9] = win[soc6[[i,3]],7]
+    }
+    win[soc6[[i,3]],6] = soc6[[i,2]]
+    win[soc6[[i,3]],7] = 0
+  }
+  if(as.numeric(soc6[i,5]) == as.numeric(soc6[i,6])){
+    win[[soc6[[i,3]],7]] = as.character(as.numeric(win[[soc6[[i,3]],7]]) + 1)  
+  }
+  
+  
+  ###L
+  if(as.numeric(soc6[i,5]) >= as.numeric(soc6[i,6]) | soc6[i,2] != win[soc6[[i,3]],10]){
+    if(as.numeric(win[soc6[[i,3]],11]) > as.numeric(win[soc6[[i,3]],13])){
+      win[soc6[[i,3]],12] = win[soc6[[i,3]],10]
+      win[soc6[[i,3]],13] = win[soc6[[i,3]],11]
+    }
+    win[soc6[[i,3]],10] = soc6[[i,2]]
+    win[soc6[[i,3]],11] = 0
+  }
+  if(as.numeric(soc6[i,5]) < as.numeric(soc6[i,6])){
+    win[[soc6[[i,3]],11]] = as.character(as.numeric(win[[soc6[[i,3]],11]]) + 1)  
+  }
+}
+as.data.frame(win) -> win
+win$V5 = as.numeric(as.character(win$V5))
+win$V9 = as.numeric(as.character(win$V9))
+win$V13 = as.numeric(as.character(win$V13))
+
+
+
+
+```
+<p dir="RTL">
+بلندترین نوار پیروزی</p>
+```{r}
+win %>% filter(V5 == max(V5)) %>% select(V1,V4,V5)
+```
+<p dir="RTL">
+بلندترین نوار مساوی
+</p>
+```{r}
+win %>% filter(V9 == max(V9)) %>% select(V1,V8,V9)
+```
+<p dir="RTL">
+بلندترین نوار شکست
+</p>
+```{r}
+win %>% filter(V13 == max(V13)) %>% select(V1,V12,V13)
+```
+
+***
+
+<p dir="RTL">
+۷. زودترین سقوط مال کدام تیم بوده است؟
+</p>
+```{r}
+max = 0
+sea = 0
+team = 0
+for(i in 1:89){
+  soc %>% filter(Season == 1927+i) %>% select(Date,home,visitor,hgoal,vgoal) %>% bind_rows(select(.,Date,home = visitor,visitor = home,hgoal = vgoal,vgoal = hgoal)) %>% 
+    mutate(hscore = ifelse(hgoal > vgoal,3,ifelse(hgoal == vgoal,1,0)) , gd = hgoal - vgoal) %>% arrange(Date) %>% 
+    mutate(week = floor((row_number() - 1) / nrow(distinct(.,home))+1)) -> soc5
+  week = as.numeric(soc5[nrow(soc5),8])
+  if(i+1927<1936 | i+1927>1938){
+    for(j in (week/2):week){
+      temp5 <- soc5 %>% filter(week <= j) %>% group_by(home) %>% summarise(score = sum(hscore),ga = sum(hgoal),gd = sum(gd)) %>% arrange(-score,-gd,-ga) %>% mutate(rank = row_number()) %>% arrange(score)
+      if((as.numeric(temp5[4,2]) > as.numeric(temp5[1,2]) + 3 * (week - j)) && week - j > max){
+        max = week -j
+        sea = 1927+i
+        team = temp5[1,1]
+      }
+    }
+  }
+}
+as.character(paste(team,' ',sea,' ',max))
+
+```
+
+***
+
+<div align="center">
+<img  src="images/standings.png"  align = 'center'>
+</div>
+
+<p dir="RTL">
+مانند شکل بالا تصویری از روند تغییر رتبه تیم ها در طول فصل ۱۹۹۸ رسم نمایید.
+</p>
+```{r}
+soc %>% filter(Season == 1998) %>% select(Date,home,visitor,hgoal,vgoal) %>% 
+  bind_rows(select(.,Date,home = visitor,visitor = home,hgoal = vgoal,vgoal = hgoal)) %>% 
+  mutate(hscore = ifelse(hgoal > vgoal,3,ifelse(hgoal == vgoal,1,0)) , gd = hgoal - vgoal) %>%
+  arrange(Date) %>% mutate(week = floor((row_number() - 1) / 20)+1) -> soc8
+table8 = matrix(nrow = 20,ncol = 38)
+for(i in 1:38){
+  temp <- soc8 %>% filter(week <= i) %>% group_by(home) %>% 
+    summarise(score = sum(hscore),ga = sum(hgoal),gd = sum(gd)) %>% arrange(-score,-gd,-ga) %>% 
+    mutate(rank = row_number()) %>% arrange(home)
+  table8[,i] = temp$rank
+}
+rownames(table8)<-temp$home
+table82 <- melt(table8)
+
+hchart(table82,type = 'line',hcaes(x = Var2,y=value,group=Var1)) %>% hc_add_theme(hc_theme_darkunica())
+
+ggplot()+geom_line(data = table82, aes(x = Var2, y = value, group = Var1,colour = as.factor(Var1))) + xlab('week') + ylab('rank') + geom_point(size = 2.1) + ggtitle("weekly la liga ranking(1998)") +
+  theme_hc(bgcolor = "darkunica")+scale_fill_hc("darkunica")
+
+```
+
+***
+
+<div align="center">
+<img  src="images/bd_10.gif"  align = 'center'>
+</div>
+
+<p dir="RTL">
+۹. جدولی مشابه بالا برای فصل ۲۰۱۲ از  کل نتایج طراحی کنید.
+</p>
+```{r}
+soc %>% filter(Season == 2012) %>% ggplot(aes(home,visitor)) + geom_tile() + 
+  geom_text(aes(label=FT,colour=""),size = 2)+theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))+
+  theme_hc(bgcolor = "darkunica") + theme(axis.text = element_text(size = 7))+scale_fill_hc("darkunica")
+
+```
+
+***
+
+<p dir="RTL">
+۱۰. سه آماره به همراه نمودار فردوسی پسند استخراج کنید.
+</p>
+
+<p dir="RTL">
+1.20 تیم پرحضور لالیگا</p>
+```{r}
+soc %>% group_by(Season,home) %>% summarise(count = 1) %>% ungroup(Season,home) %>% group_by(home) %>% summarise(n = sum(count)) %>% arrange(-n) %>% filter(row_number() < 20) %>% ggplot(aes(x = reorder(home,n), y = n)) + geom_bar(stat='identity') + coord_flip() + xlab("team") + ylab("Seasons")
+```
+<p dir="RTL">
+2.هر تیم چه بخشی از امتیازات کسب شده در لالیگا را در 10 سال اخیر در ختیار دارد.
+</p>
+```{r}
+soc %>% filter(Season > 2006) %>%  select(Season,home,visitor,hgoal,vgoal) %>% 
+  bind_rows(select(.,Season,home = visitor,visitor = home,hgoal = vgoal,vgoal = hgoal)) %>% 
+  mutate(hscore = ifelse(hgoal > vgoal,3,ifelse(hgoal == vgoal,1,0))) %>% 
+  group_by(home) %>% summarise(score = sum(hscore)) %>% ungroup(home) %>% mutate(y = 100*score/sum(score)) %>%
+  select(name = home,y) %>% filter(y > 1) ->soc12
+
+highchart() %>% hc_chart(type = "pie") %>% hc_add_series(soc12)
+
+```
+<p dir="RTL">
+3.10 تیم جذاب لالیگا.
+</p>
+```{r}
+soc %>% select(Season,home,visitor,hgoal,vgoal) %>% 
+  bind_rows(select(.,Season,home = visitor,visitor = home,hgoal = vgoal,vgoal = hgoal)) %>% 
+  group_by(home) %>% summarise(avegoal = sum(hgoal)/n()) %>% arrange(-avegoal) %>% 
+  filter(row_number()<11) ->soc13
+
+hchart(soc13,type = 'column',hcaes(x = home,y = avegoal)) %>% hc_add_theme(hc_theme_ffx())
+```
+

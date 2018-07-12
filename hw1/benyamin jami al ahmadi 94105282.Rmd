@@ -1,0 +1,192 @@
+---
+title: "HW1"
+author: "benyamin jami al ahmadi 94105282"
+
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+---
+
+<div align="center">
+
+</div>
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+library(magic)
+library(gtools)
+```
+
+
+<h2 dir="RTL">
+ماتریس دوستانه
+</h2>
+
+<p dir="RTL">
+یک ماتریس
+$(n,n)$
+که شامل اعداد 
+$1,2,...,n^2$
+است. دوستانه نامیده میشود اگر مجموع سطرها با مجموع ستون های آن برابر شوند. مثال هایی از ماتریس های دوستانه از بعد ۴و۵و۶ ارایه دهید. 
+</p>
+
+```{r}
+magic(4)
+magic(5)
+magic(6)
+```
+
+
+
+***
+
+<h2 dir="RTL">
+جایشگت  عجیب
+</h2>
+
+<p dir="RTL">
+جایگشت هایی از اعداد ۱ تا ۱۳ را پیدا کنید که در شرایط زیر صدق کنند:
+</p>
+
+$$ a = (a_1, a_2,..., a_{13})$$
+$$\frac{a_1}{a_2+a_3} = \frac{a_2+a_3}{a_3+a_4+a_5}<1$$
+$$\frac{a_6}{a_6+a_7}= \frac{a_6+a_7}{a_7+a_8+a_9} = \frac{a_7+a_8+a_9}{a_5+a_9+a_{10}} <1$$
+
+$$\frac{a_{11}+a_{12}}{a_{12}+a_{13}}=\frac{a_{12}+a_{13}}{a_{13}+a_{10}}<1$$
+
+
+```{r}
+diff <- function(a,b){
+  for(i in 1:length(a))
+    for(j in 1:length(b))
+      if(a[i] == b[j])
+        return(F)
+  return(T)
+}
+
+a = c(1:13)
+b = permutations(13,5,a)
+d = permutations(13,6,a)
+e = permutations(13,4,a)
+c1 = matrix(ncol=5)
+i = 1
+for (i in (length(b)/5):1){
+  if((b[i,1]/(b[i,2]+b[i,3])) == ((b[i,2]+b[i,3])/(b[i,3]+b[i,4]+b[i,5])) && 
+     (b[i,1]/(b[i,2]+b[i,3])) < 1){
+    c1 = rbind(c1,b[i,])   
+  }
+}
+c2 = matrix(ncol=6)
+i = 1
+for (i in (length(d)/6):1){
+  if((d[i,2]/(d[i,2]+d[i,3])) == ((d[i,2]+d[i,3])/(d[i,3]+d[i,4]+d[i,5])) &&
+     (d[i,2]/(d[i,2]+d[i,3])) == ((d[i,3]+d[i,4]+d[i,5])/(d[i,1]+d[i,5]+d[i,6])) &&
+     (d[i,2]/(d[i,2]+d[i,3])) < 1){
+    c2 = rbind(c2,d[i,])   
+  }
+}
+c3 = matrix(ncol=4)
+i = 1
+for (i in (length(e)/4):1){
+  if(((e[i,2]+e[i,3])/(e[i,4]+e[i,3])) == ((e[i,4]+e[i,3])/(e[i,1]+e[i,4])) && 
+     ((e[i,2]+e[i,3])/(e[i,4]+e[i,3])) < 1){
+    c3 = rbind(c3,e[i,])   
+  }
+}
+
+for(i in 2:(length(c1)/5))
+  for(j in 2:(length(c2)/6))
+    for(k in 2:(length(c3)/4))
+      if(c1[i,5] == c2[j,1] & c2[j,6] == c3[k,1] &
+         diff(c1[i,],c2[j,2:6]) & diff(c2[j,1:5],c3[k,]) & diff(c1[i,],c3[k,]))
+        print( c(c1[i,],c2[j,2:5],c3[k,]) )
+
+```
+
+***
+
+<h2 dir="RTL">
+مچ گیری
+</h2>
+
+<p dir="RTL">
+میزگردی شامل ۱۶ فرد دروغگو و راستگو تشکیل شده است. هر کسی ادعا میکند دو فرد کنار دستی او دروغگو هستند. چند نفر دروغگو در جمع وجود دارد؟
+</p>
+```{r}
+a = rep(F,16)
+for(i in 1:15){
+  a[i+1] = !a[i]
+}
+j = 0
+for(i in 1:16)
+  if(a[i])
+    j=j+1
+j
+
+```
+
+<p dir="RTL">
+میزگرد دیگری شامل ۱۲ نفر فرد راستگو و دروغگو تشکیل شده به طوری که هر فرد ادعا میکند از میان دو نفر کنار دستی یک نفر راستگو و یک نفر دروغگو هستند. چند نفر دروغگو در جمع وجود دارد؟
+</p>
+```{r}
+a = rep(F,12)
+i = 1
+for (i in 1:10){
+  if(!a[i+1] & !a[i])
+    a[i+2] = T
+  else if(!a[i+1] & a[i])
+    a[i+2] = F
+  else if(a[i+1] & !a[i])
+    a[i+2] = T
+  else if(a[i+1] & a[i])
+    a[i+2] = F
+}
+j = 0
+for(i in 1:12)
+  if(a[i])
+    j=j+1
+j
+```
+
+<p dir="RTL">
+این دفعه میزگردی هشت نفره تشکیل شده به گونه ایی که چهار نفر ادعا میکنند از از میان دو نفر کنار دستی یکی دروغگو و دیگری راستگوست و چهار نفر دیگر اعلام میکنند که هر دو فرد کنار دستی آنها دروغگو هستند. چند نفر دروغگو در میان جمع است؟
+</p>
+```{r,warning=FALSE,message=FALSE}
+back <- function(a,i,n,m){
+  if(i == 9 && !a[8]){
+    return (1)}
+  if(i == 9 && a[8])
+    return (a)
+  if(m < 0)
+    return (1)
+  if(n < 0)
+    return (1)
+  
+  b1 = a
+  b2 = a
+  if(!b2[i] & !b2[i-1])
+    b2[i+1] = T
+  else if(!b2[i] & b2[i-1])
+    b2[i+1] = F
+  else if(b2[i] & !b2[i-1])
+    b2[i+1] = T
+  else if(b2[i] & b2[i-1])
+    b2[i+1] = F
+  b2 = back(b2,i+1,n,m-1)
+  b1[i+1] = !b1[i]
+  b1 = back(b1,i+1,n-1,m)
+  
+  if(b1 != 1)
+    return(b1)
+  else return(b2)
+}
+
+a = rep(F,8)
+b = back(a,2,3,4)
+j = 0
+for (i in 1:8)
+  if(!b[i])
+    j = j+1
+print(j)
+
+```
+

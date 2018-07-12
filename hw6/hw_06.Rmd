@@ -1,0 +1,217 @@
+---
+title: "Sixth Week: Linear Models"
+subtitle: "House price prediction"
+author: "benyamin jami al ahmadi 94105282"
+date: "`r Sys.time()`"
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+---
+
+<div align="center">
+<img  src="images/house.jpg"  align = 'center'>
+</div>
+
+> <p dir="RTL"> 
+با توجه به داده های قیمت منازل
+لطفا با سوالات زیر پاسخ دهید.
+</p>
+
+```{r,echo=FALSE,warning=FALSE,message=FALSE}
+library(dplyr)
+library(readr)
+library(pheatmap) 
+library(ggplot2)
+library(gplots)
+library(corrplot)
+library(RColorBrewer)
+library(Hmisc)
+library(car)
+library(highcharter)
+house = read.csv("../../data/train.csv")
+
+```
+
+***
+
+<p dir="RTL">
+۱. ماتریس همبستگی متغیرهای مختلف را به دست آورده و سپس رسم نمایید.
+اعداد به دست آمده را با آزمون فرض معناداری همبستگی بسنجید و سپس ده متغیری که همبستگی بالاتری با قیمت دارند را مشخص نمایید.
+</p>
+```{r}
+house_num = house %>% select_if(is.numeric)
+house_cor = cor(house_num, method = "pearson" , use = "complete.obs")
+corrplot(house_cor,tl.cex = 0.5,tl.col = "black")
+
+ans1 = c()
+for(i in 1:38)
+{
+  ans1 = c(ans1, cor.test(house_num$SalePrice, house_num[, i])$estimate)
+}
+corr_value = data.frame(parameter = colnames(house_num), correlation = ans1)
+corr_value %>% arrange(desc(correlation)) %>% slice(2:11) %>% 
+  select(parameter) -> ans1
+ans1
+
+
+```
+
+***
+
+<p dir="RTL">
+۲. در یک تصویر نمودار پراکنش دو به دو ده متغیر بدست آمده به همراه قیمت را رسم نمایید و هم خطی بودن متغیرها را بررسی کنید
+</p>
+```{r,warning=FALSE}
+par = (mfrow=c(11,11))
+house_num %>% select(SalePrice, as.character(ans1$parameter)) -> data2 
+data2 %>% scatterplotMatrix(cex = 0.05)
+
+```
+<p dir="rtl">
+ه به نمودارها دو متغیر TotalBsmtSF و X1stFlrSF با متغیر SalePrice رابطه خطی ندارند.
+</p>
+
+***
+
+<p dir="RTL">
+۳. یک مدل خطی بر اساس ده متغیر برای پیش بینی قیمت برازش دهید. و سپس خلاصه نتایج مدل را به دست آورید.
+</p>
+```{r}
+fit = lm(data = data2 , formula = SalePrice ~ .)
+summary(fit)
+
+```
+
+***
+
+<p dir="RTL">
+۴. نمودار قیمت واقعی و قیمت پیش بینی را رسم نمایید و خوب بودن مدل را ارزیابی کنید.
+</p>
+```{r}
+data.frame(SalePrice = data2$SalePrice , fitted = fit$fitted.values) -> data4
+hchart(data4 , hcaes(x = SalePrice , y = fitted) , type = "scatter")
+lm(data4$SalePrice~data4$fitted) %>% summary()
+scatterplotMatrix(data4,cex=0.7)
+
+
+```
+<p dir="rtl">
+با توجه به مقادیر p-vlaue میتوان گفت مدل مناسبی است اما باید residuals نیز مورد بررسی قرار گیرند.
+</p>
+***
+
+<p dir="RTL">
+۵. مقدار
+R-squared
+ مدل را به دست آورید. آیا بر اساس این کمیت مدل به خوبی به داده ها برازش داده شده است؟
+ کمیت
+ F-statistic
+ را در خلاصه مدل تفسیر نمایید.
+</p>
+```{r}
+data5 = summary(fit)
+data5$r.squared
+data5$fstatistic
+
+```
+<p dir="rtl">
+r-squared مقداری آماری جهت نشان دادن آن است که داده چقدر به خط رگرسیون نزدیک استو عددی بین 1 تا 0 است و هر چه بیشتر باشد بهتر است که مقدار بدست آمده مقدار مناسبی میباشد.
+و از طرفی مقدار fstatistic هر چه بالاتز باشد بهتر است که مقدار بدست آمده مقدار خوبی است.
+</p>
+
+
+***
+
+<p dir="RTL">
+۶. بر اساس
+p-value
+ سطح معناداری ضرایب تصمیم بگیرید که چه متغیرهایی در مدل سازی استفاده شود.
+بر اساس متغیرهای جدید دوباره مدل سازی کنید و نتایج رو گزارش دهید.
+</p>
+```{r}
+var6 = ans1[-c(4,6,7,8),]
+house %>% select("SalePrice",as.character(var6$parameter)) -> data6
+lm(SalePrice ~ .,data = data6) -> fit2
+summary(fit2) -> fits2
+fits2$r.squared
+plot(fit2)
+```
+<p dir="RTL">
+متغیر ها با p-value بیشتر را حذف میکنیم.
+</p>
+
+***
+
+<p dir="RTL">
+۷. مدل خود را بر اساس باقی مانده نقص یابی کنید.
+سه محک 
+normality, independance, Constant Variance
+ را در نقص یابی خود در نظر بگیرید.
+</p>
+```{r}
+plot(fit2)
+ncvTest(fit2)
+shapiro.test(fit2$residuals)
+acf(fit2$residuals)
+```
+
+<p dir="RTL">
+با توجه به نمودار Q-Q normal و تستshapiro میتوان فهمید که از توزیع نرمال پیروی نمیکنند.
+و با توجه به Residuals vs Fitedمیتوان فهمید که واریانس  خطا ثابت نیست.
+و از نمودار آخر میتوان به مستقل بودن متغیر ها پی برد.
+</p>
+
+***
+
+<p dir="RTL">
+۸. داده ها را به پنج قسمت تقسیم کنید. بر اساس چهار قسمت مدل خطی را بسازید و صحت مدل را برای یک قسمت 
+باقی مانده را تست کنید. خطای پیش بینی شما چقدر است؟
+</p>
+```{r}
+set.seed(100)  # setting seed to reproduce results of random sampling
+trainingRowIndex <- sample(1:nrow(data6), 0.8*nrow(data6))  # row indices for training data
+trainingData <- data6[trainingRowIndex, ]  # model training data
+testData  <- data6[-trainingRowIndex, ]   # test data
+lmMod <- lm(SalePrice ~ ., data=trainingData)  # build the model
+distPred <- predict(lmMod, testData)  # predict distance
+summary(lmMod)
+actuals_preds <- data.frame(cbind(actuals=testData$SalePrice, predicteds=distPred))  # make actuals_predicteds dataframe.
+correlation_accuracy <- cor(actuals_preds)  # 82.7%
+correlation_accuracy
+```
+
+
+***
+
+<p dir="RTL"> 
+۹. آیا قیمت ربط غیر خطی با یکی از ده متغیر استفاده شده دارد؟
+بر اساس دستاوردهای خود مدل را بهتر نمایید.
+</p>
+<p dir="RTL"> 
+با توجه به نمدار های سوال 2 میتوان فهمید که OverallQual رابطه نمایی با قیمت دارد.
+</p>
+```{r}
+final_fit = lm(SalePrice ~ exp(OverallQual) + GrLivArea + GarageCars + TotalBsmtSF + YearBuilt + YearRemodAdd  , data = house)
+```
+***
+
+<p dir="RTL"> 
+۱۰. بر اساس مدل نهایی به دست آمده نتایج پیش بینی خود را بر روی
+test.csv
+به دست آورید و در سایت 
+kaggle
+ در مسابقه 
+ House Prices: Advanced Regression Techniques
+بارگذاری نمایید. سپس لینک رتبه و عدد آن را ضمیمه تمرین کنید.
+</p>
+```{r,warning=FALSE,message=FALSE}
+test = read_csv("test.csv")
+ans10 = data.frame(test$Id) 
+ans10$SalePrice = predict(final_fit, test)
+colnames(ans10) = c("Id", "SalePrice")
+ans10[is.na(ans10)] = 200000
+write_csv(ans10,"94105282.csv")
+```
+
+

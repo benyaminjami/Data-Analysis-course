@@ -1,0 +1,262 @@
+---
+title: "Fourth Week: Hypothesis Testing"
+subtitle: "TIMSS Analysis"
+author: "Benyamin Jami al ahmadi 94105282"
+date: "`r Sys.time()`"
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+---
+
+<div align="center">
+<img  src="images/math.jpg"  align = 'center'>
+</div>
+
+<h1 dir="RTL"> 
+تمرین سری چهارم: چقدر ریاضی بلدیم و چرا؟
+</h1>
+
+<p dir="RTL"> لطفا مقاله زیر را مطالعه بفرمایید. </p>
+<p dir="RTL">
+[چرایی رتبه ضعیف ایران در آزمون تیمز](https://goo.gl/gX8DZc)
+</p>
+
+> <p dir="RTL"> 
+با استفاده از داده های ارزیابی تیمز ۲۰۱۵ ادعاهای زیر را مورد ارزیابی قراردهید.
+برای هر سوال علاوه بر استدلال آماری که در غالب آزمون فرض تعریف می شود از تصویرسازی مناسب باهر دو ابزار
+ggplot2
+و
+highcharter
+استفاده نمایید.
+به دلخواه به هفت گزاره از موارد زیر پاسخ دهید.
+</p>
+
+```{r,echo=FALSE,warning=FALSE,message=FALSE}
+library(readr)
+library(dplyr)
+library(highcharter)
+library(ggplot2)
+library(ggthemes)
+bcg = read_rds("../../data/bcg.rds") # school background
+bsg = read_rds("../../data/bsg.rds") # student background
+btg = read_rds("../../data/btm.rds") # Teacher background
+bsa = read_rds("../../data/bsa.rds") # strudent result
+bst = read_rds("../../data/bst.rds") # student-teacher linkage
+bsr = read_rds("../../data/bsr.rds") # within-country
+bts = read_rds("../../data/bts.rds")
+bst %>% mutate(grade = rowSums(.[25:29])/5) %>% select(idcntry,idschool,idstud,idtealin,grade) -> studetgrade
+tims = read_rds("../../timss_2015.rds")
+
+
+```
+
+
+
+***
+
+<p dir="RTL">
+۱. میران رضایت معلمان در پیشرفت تحصیلی دانش آموزان موثر است.
+</p>
+```{r,warning=FALSE}
+merge(studetgrade ,
+      btg %>% mutate(feel = btdgtjs) %>% select(idcntry,idschool,idtealin,feel),
+      by = c('idtealin','idcntry','idschool')
+      ) %>% group_by(idcntry,idschool,idstud,feel) %>% summarise(grade = mean(grade))  -> ans1
+
+summary(aov(grade~as.factor(feel),data = ans1))
+ans1 %>% select(JobSatisfaction = feel,grade) %>%  filter(!is.na(grade)) %>% group_by(JobSatisfaction) %>% summarise(avegrade = mean(grade)) %>% hchart("scatter",hcaes(x = JobSatisfaction, y = avegrade)) %>% hc_add_theme(hc_theme_db())
+rm(ans1)
+```
+
+
+
+
+***
+
+<p dir="RTL">
+۲. والدینی که تحصیلات بیشتری دارند دارای فرزندان موفق تری می باشند.
+</p>
+```{r,warning=FALSE}
+merge(studetgrade,
+      bsg %>% select(parent = bsdgedup, idstud, idcntry, idschool), 
+      by=c("idstud", "idcntry", "idschool")) %>% filter(parent < 6) -> ans2
+
+
+ans2 %>% group_by(parent) %>% summarise(grade = mean(grade)) %>% hchart("scatter",hcaes(x=parent,y=grade)) %>% hc_add_theme(hc_theme_db())
+
+for(i in 1:4) {
+  ans2 %>% filter(parent == i | parent == i + 1) %>% t.test(grade ~ parent,data = .,alt = "greater") %>% print()
+}
+rm(ans2)
+```
+
+
+
+***
+
+<p dir="RTL">
+۳. امکانات رفاهی در خانه موجب پیشرفت تحصیلی می گردد.
+</p>
+```{r,warning=FALSE}
+merge(bsg %>% mutate(Home = bsbgher) %>% select(idcntry,idschool,idstud,Home) ,
+      bst %>% mutate(grade = rowSums(.[25:29])/5) %>% group_by(idcntry,idschool,idstud,idtealin) %>%summarise(grade = mean(grade)),
+      by = c("idcntry","idstud","idschool"))  -> ans3
+
+cor.test(ans3$grade,ans3$Home)
+
+ans3 %>% group_by(Home) %>% summarise(grade = mean(grade)) %>% hchart("point",hcaes(Home,grade),regression=TRUE) %>% hc_add_theme(hc_theme_db())
+
+
+rm(ans3)
+
+```
+
+***
+
+<p dir="RTL">
+۴. محیط آرام مدرسه نقش مهمی در پیشرفت تحصیلی دارد.
+</p>
+
+```{r,warning=FALSE}
+merge(bsg %>% mutate(School = bsbgsb) %>% select(idcntry,idschool,idstud,School) ,
+      studetgrade,
+      by = c("idcntry","idstud","idschool"))->ans4
+
+cor.test(ans4$grade,ans4$School)
+
+ans4 %>% ggplot(aes(x = School,y = grade)) + geom_point() + geom_smooth(method = "lm")
+rm(ans4)
+
+```
+
+
+***
+
+<p dir="RTL">
+۵. معلمان با تحصیلات  بالاتر یا تجربه بیشتر دانش آموزان موفق تری تربیت می کنند.
+</p>
+
+```{r,warning=FALSE}
+merge(bst %>% mutate(grade = rowSums(.[25:100])) %>% select(idcntry,idschool,idstud,idtealin,grade) ,
+      btg %>% mutate(experience = btbg01,edu = btbg04) %>% select(idcntry,idschool,idtealin,experience,edu),
+      by = c('idtealin','idcntry','idschool')
+) %>% group_by(idcntry,idschool,idtealin,experience,edu) %>% summarise(grade = mean(grade)) -> ans5
+summary(aov(grade ~ (as.factor(experience) * as.factor(edu)),data = ans5))
+ans5 %>% group_by(edu) %>% summarise(avegrade = mean(grade)) %>% hchart("point",hcaes(edu,avegrade)) %>%  hc_add_theme(hc_theme_db())
+ans5 %>% group_by(experience) %>% summarise(avegrade = mean(grade)) %>% hchart("point",hcaes(experience,avegrade)) %>%  hc_add_theme(hc_theme_db())
+
+rm(ans5)
+```
+
+
+***
+
+<p dir="RTL"> 
+۶. پسران در کاربرد هندسه قوی تر هستند.
+</p>
+
+```{r,warning=FALSE}
+tims %>% filter(content_domain == "Geometry", cognitive_domain == "Applying") %>% 
+  select(female = correct_ratio_per_question_female, male = correct_ratio_per_question_male) %>% 
+  tidyr::gather("female","male", key = "gender",value = "score") -> ans6
+t.test(score ~ gender,data = ans6,alt = "greater")
+
+ggplot(ans6,aes(x = score,fill = gender)) + geom_density(alpha = 0.4)
+```
+
+
+***
+
+<p dir="RTL"> 
+۷. تغذیه دانش آموزان نقش اساسی در یادگیری آنها دارد. 
+</p>
+
+```{r,warning=FALSE}
+merge(bsg %>% mutate(Meal = bsbg12) %>% select(idcntry,idschool,idstud,Meal) ,
+      studetgrade,
+      by = c("idcntry","idstud","idschool")) -> ans7
+for(i in 1:3) {
+  ans7 %>% filter(Meal == i | Meal == i + 1) %>% t.test(grade ~ Meal,data = .,alt = "greater") %>% print()
+}
+
+ans7 %>% select(Breakfast = Meal,grade) %>%  filter(!is.na(grade)) %>% group_by(Breakfast) %>% summarise(avegrade = mean(grade)) %>% hchart("scatter",hcaes(x = Breakfast, y = avegrade)) %>% hc_add_theme(hc_theme_db())
+rm(ans7)
+```
+
+
+***
+
+<p dir="RTL"> 
+۸. مدارس با امکانات بیشتر دارای عملکرد بهتری می باشند.
+</p>
+
+***
+
+<p dir="RTL"> 
+۹. علت افت تحصیلی عدم مشارکت در کلاس است.
+</p>
+
+***
+
+<p dir="RTL"> 
+۱۰. دانش آموزان ایرانی در استدلال قوی تر از کاربرد هستند.
+</p>
+
+***
+
+<p dir="RTL">
+سه گزاره جالب کشف کنید و ادعای خود را ثابت نمایید.
+</p>
+
+
+<p dir="RTL">
+تمرین در منزل در وضعیت تحصیلی موثر است.
+</p>
+```{r,warning = FALSE}
+
+merge(bsg %>% mutate(HW = bsdmwkhw) %>% select(idcntry,idschool,idstud,HW) ,
+      studetgrade,
+      by = c("idcntry","idstud","idschool")) -> ans8
+
+summary(aov(grade~HW,data = ans8))
+ans8 %>% select(Homework = HW,grade) %>%  filter(!is.na(grade)) %>% group_by(Homework) %>%
+summarise(avegrade = mean(grade)) %>% hchart("scatter",hcaes(x = Homework, y = avegrade)) %>% hc_add_theme(hc_theme_db())
+rm(ans8)
+```
+
+
+
+<p dir="RTL">
+اعتماد به نفس بالا باعث رشد تحصیلی میشود.
+</p>
+
+```{r,warning=FALSE}
+merge(bsg %>% mutate(Confident = bsbgscm) %>% select(idcntry,idschool,idstud,Confident) ,
+      studetgrade,
+      by = c("idcntry","idstud","idschool")) -> ans9
+
+cor.test(ans9$grade,ans9$Confident)
+ans9 %>% select(Confident,grade) %>%  filter(!is.na(grade)) %>% group_by(Confident) %>%
+summarise(avegrade = mean(grade)) %>% hchart("scatter",hcaes(x = Confident, y = avegrade)) %>% hc_add_theme(hc_theme_db())
+rm(ans8)
+
+```
+
+
+<p dir="RTL">
+فعالیت در خانه در پیشرفت تحصیلی موثر است.
+</p>
+```{r,warning=FALSE}
+merge(bsg %>% mutate(activity = bsbg03) %>% select(idcntry,idschool,idstud,activity) ,
+      studetgrade,
+      by = c("idcntry","idstud","idschool")) -> ans10
+
+summary(aov(grade~activity,data = ans10))
+ans10 %>% select(activity,grade) %>%  filter(!is.na(grade)) %>% group_by(activity) %>%
+summarise(avegrade = mean(grade)) %>% hchart("scatter",hcaes(x = activity, y = avegrade)) %>% hc_add_theme(hc_theme_db())
+rm(ans10)
+
+```
+
+
