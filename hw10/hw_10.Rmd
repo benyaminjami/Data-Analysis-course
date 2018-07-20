@@ -1,0 +1,480 @@
+---
+title: "Cluster Analysis"
+subtitle: "WDI Indicators"
+author: "Benyamin jami al ahmadi 94105282"
+date: "`r Sys.time()`"
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+---
+
+<div align="center">
+<img  src="images/best_hans_talks_1200x627.jpg"  align = 'center'>
+</div>
+
+> <p dir="RTL"> 
+با توجه به داده بانک جهانی به سوالات زیر پاسخ دهید. برای استفاده از داده از سه فایل زیر استفاده نمایید.
+داده نام کشورها: WDICountry
+داده نام سری های زمانی: WDISeries
+داده کل: WDIData
+در صورتی که داده را در اختیار ندارید می توانید از بسته WDI استفاده نموده و داده های مورد نظر را استخراج نمایید.
+</p>
+
+```{r,warning=FALSE,message=FALSE}
+library(stringr)
+library(readr)
+library(tidyr)
+library(highcharter)
+library(ggplot2)
+library(ggthemes)
+library(countrycode)
+library(ggpubr)
+library(ggbiplot)
+library(dplyr)
+
+series = read_csv('../data/WDISeries.csv')
+country = read_csv('../data/WDICountry.csv')
+data = read_csv('../data/WDIData.csv')
+
+```
+
+***
+
+<p dir="RTL">
+۱. ده کشور فقیر دنیا را بیابید. نمودار درآمد روزانه آنها را رسم کنید. چند درصد از اعضای این کشورها زیر خط فقر هستند؟ متوسط عمر در این کشورها چقدر است؟
+</p>
+```{r}
+data %>% filter(`Indicator Code` == "NY.GDP.PCAP.PP.KD") %>% gather('year','val',`1960`:`2017`) %>% filter(!is.na(val)) %>% 
+  mutate(year = as.numeric(year)) %>% arrange(year) %>% group_by(`Country Name`) %>% summarise(poverty = last(val)) %>% 
+  arrange(poverty) %>% head(10) %>% select(1) -> poorestCountry
+poorestCountry
+
+poorestCountry %>% left_join(data) -> poorestCountry
+  
+poorestCountry %>% filter(`Indicator Code` == "NY.GDP.PCAP.PP.KD") %>% select(country = `Country Name` , GDP = `2016`) %>% ggplot(aes(x = country , y = GDP)) + geom_bar(stat = "identity") + coord_flip()
+
+poorestCountry %>% filter(`Indicator Code` == "SI.POV.NAHC") %>% gather('year','val',`1960`:`2017`) %>% filter(!is.na(val)) %>% 
+  mutate(year = as.numeric(year)) %>% arrange(year) %>% group_by(`Country Name`) %>% summarise(poverty = last(val)) %>% 
+  ggplot(aes(x = `Country Name` , y = poverty)) + geom_bar(stat = "identity") + coord_flip()
+
+poorestCountry %>% filter(`Indicator Code` == "SP.DYN.LE00.IN") %>% gather('year','val',`1960`:`2017`) %>% filter(!is.na(val)) %>% 
+  mutate(year = as.numeric(year)) %>% arrange(year) %>% group_by(`Country Name`) %>% summarise(life = last(val)) %>% 
+  ggplot(aes(x = `Country Name` , y = life)) + geom_bar(stat = "identity") + coord_flip()
+
+```
+
+***
+
+<p dir="RTL">
+۲. تراژدی روآندا: بر اساس داده های امید به زندگی ابتدا نمودار سالانه نمودار جعبه ایی امید به زندگی کشورها را رسم نمایید(در یک نمودار!). سپس سری زمانی امید به زندگی روآندا را به آن اضافه کنید. چه می بینید؟ چند میلیون نفر کشته شدند؟
+</p>
+
+```{r}
+data %>% filter(`Indicator Code` == "SP.DYN.LE00.IN") %>% gather('year','val',`1960`:`2017`) %>% filter(!is.na(val)) -> t2 
+  ggplot() + geom_boxplot(data = t2 ,aes(year, val), color = "green") + geom_point(data = t2 %>% filter(`Country Name` == "Rwanda"),aes(x = year, y = val)) + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + ylab("Life Expectance")
+```
+<p dir="RTL">
+در جریان نسلکشی سال ۱۹۹۴ روآندا که از آن تحت عنوان تاریکترین فاجعه انسانی نیم سده گذشته یاد میشود، علاوه بر کشتهشدن ۸۰۰ هزار مرد، زن و کودک، به ۲۰۰ تا ۵۰۰ هزار زن تجاوز جنسی شد.
+</p>
+
+***
+
+<p dir="RTL">
+۳. نمودار امید به زندگی و هزینه های بهداشتی را رسم کنید. چه نتیجه ایی می گیرید؟
+</p>
+```{r}
+data %>% filter(`Indicator Code` == "SH.XPD.PVTD.PP.CD") %>% gather('year','val',`1960`:`2017`) %>% filter(!is.na(val)) %>% 
+  mutate(year = as.numeric(year)) %>% arrange(year) %>% group_by(`Country Code`) %>% summarise(expence = last(val)) %>% 
+  arrange(expence) -> expence
+data %>% filter(`Indicator Code` == "SP.DYN.LE00.IN") %>% gather('year','val',`1960`:`2017`) %>% filter(!is.na(val)) %>% 
+  mutate(year = as.numeric(year)) %>% arrange(year) %>% group_by(`Country Code`) %>% summarise(life = last(val)) %>% 
+  arrange(life) -> life
+merge(life,expence) -> t3 
+ggplot() + geom_point(data = t3 , aes(y = life , x = expence))
+```
+
+<p dir="RTL">
+با افزایش هزینه های بهداشتی کیفیت خدمات بهداشتی افزایش میابد که در نتیجه امید به زندگی افزایش پیدا کرده.
+</p>
+
+***
+
+<p dir="RTL">
+۴. آیا قدرت خرید خانواده های ایرانی در ۵۰ سال اخیر افزایش یافته است؟ برای این کار از داده های اقتصادی خانوار استفاده کنید.
+</p>
+```{r}
+data %>% filter(`Indicator Code` == "NE.CON.PRVT.PC.KD" , `Country Name` == "Iran, Islamic Rep.") %>% gather('year','val',`1960`:`2017`) %>% filter(!is.na(val)) %>% 
+  mutate(year = as.numeric(year)) %>% arrange(year) -> t4
+t4 %>% ggplot(aes(x = year, y = val)) + geom_line()
+```
+
+
+<p dir="RTL">
+با توجه به نمودار قدرت خرید خانواده های ایران افزایش یافته.
+</p>
+
+***
+
+<p dir="RTL">
+۵. رشد اقتصادی ایران را با کشورهای دیگر در طول ۲۰ سال گذشته بر حسب بیست شاخص های اقتصادی مهم مانند تولید ناخالص ملی، تورم و … ارزیابی کنید! (برای هر شاخص از تصویرسازی استفاده کنید.)
+</p>
+
+```{r,warning=FALSE,message=FALSE}
+ Indicatortemp = c(
+  "NY.ADJ.SVNG.GN.ZS",
+  "EA.PRD.AGRI.KD",
+  "GC.DOD.TOTL.GD.ZS",
+  "BM.GSR.ROYL.CD",
+  "BX.GSR.ROYL.CD",
+  "BN.CAB.XOKA.CD",
+  "GC.XPN.TOTL.GD.ZS",
+  "BX.GSR.TOTL.CD",
+  "DT.DOD.DECT.CD",
+  "DT.DOD.DECT.GN.ZS",
+  "BX.KLT.DINV.CD.WD",
+  "NY.GDP.MKTP.CD",
+  "NY.GDP.MKTP.KD.ZG",
+  "NY.GDP.PCAP.CD",
+  "NE.EXP.GNFS.ZS",
+  "NE.IMP.GNFS.ZS",
+  "NE.TRD.GNFS.ZS",
+  "NY.GNP.PCAP.CD",
+  "NE.GDI.TOTL.ZS",
+  "NY.GDS.TOTL.ZS",
+  "NV.IND.TOTL.CD",
+  "NV.IND.MANF.CD",
+  "NY.GDP.PCAP.KD.ZG",
+  "NY.GDP.PCAP.PP.CD",
+  "NY.GNP.PCAP.PP.KD",
+  "NY.GNP.ATLS.CD",
+  "NY.GNP.MKTP.PP.CD",
+  "NY.ADJ.AEDU.GN.ZS",
+  "BX.KLT.DINV.WD.GD.ZS",
+  "NV.AGR.TOTL.ZS",
+  "NV.SRV.TETC.ZS",
+  "NY.GSR.NFCY.CD",
+  "NE.CON.TETC.CD",
+  "NE.DAB.TOTL.CD",
+  "SL.UEM.TOTL.ZS",
+  "FP.CPI.TOTL.ZG",
+  "NY.ADJ.DMIN.GN.ZS"
+)
+k = 0;
+ Indicator = c()
+for(code in  Indicatortemp){
+  if(k == 20)
+    break();
+  IndicatorName = series %>% filter(`Series Code` == code) %>% .$`Indicator Name` %>% .[1]
+  worldData = data %>% filter(`Indicator Code` == code) %>% select(`Country Name` , `1996`:`2015`) %>% gather('year','val',`1996`:`2015`) %>% filter(!is.na(val))
+  IranData = worldData %>% filter(`Country Name` == "Iran, Islamic Rep.")
+  if(length(IranData$val) < 20)
+    next()
+  p = ggplot() + geom_boxplot(data = worldData,aes(x = year,y=val),outlier.colour = NA) +
+    geom_line(data = IranData,aes(x=year,y=val,group = 1),color = "blue") +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    ggtitle(IndicatorName) + 
+    scale_y_continuous(limits = c(min(quantile(worldData$val, 0.1),min(IranData$val)),max(quantile(worldData$val, 0.9),max(IranData$val))))
+  print(p)
+   Indicator = c(code ,  Indicator)
+  k = k + 1
+}
+```
+
+
+***
+
+<p dir="RTL">
+۶. در قسمت قبل با استفاده از روش خوشه بندی k-means داده ها را به سه دسته تقسیم کنید. ایران در کدام دسته می گنجد؟ (پیش از خوشه بندی طبیعتا داده را باید پاکسازی و استاندارد سازی نمایید.)
+</p>
+```{r}
+data %>% filter(`Indicator Code` %in%  Indicator) %>% gather('year','val',`1960`:`2017`) %>% filter(!is.na(val)) %>% 
+  mutate(year = as.numeric(year)) %>% arrange(year) %>% group_by(`Country Name`,`Indicator Code`) %>% summarise(val = last(val)) %>% spread('Indicator Code','val') %>% drop_na() -> worldData
+worldData %>% .[,-1] %>% scale() %>% kmeans(centers = 3,nstart = 20) %>% .$cluster %>%
+  data.frame(Country = worldData$`Country Name`,cluster = .) -> clustered
+cluster1 = ""
+cluster2 = ""
+cluster3 = ""
+for(i in 1:length(clustered$Country)){
+  if(clustered[i,2] == 1){
+    cluster1 = paste(clustered[i,1],cluster1,sep = " , ")
+  }
+  if(clustered[i,2] == 2){
+    cluster2 = paste(clustered[i,1],cluster2,sep = " , ")
+  }
+  if(clustered[i,2] == 3){
+    cluster3 = paste(clustered[i,1],cluster3,sep = " , ")
+  }
+}
+print("cluster 1:")
+cluster1
+print("cluster 2:")
+cluster2
+print("cluster 3:")
+cluster3
+paste("iran : cluster",clustered[52,2])
+```
+
+***
+
+<p dir="RTL">
+۷. به وسیله تحلیل مولفه اصلی بعد داده رو به دو کاهش دهید سپس خوشه های به دست آمده در قسمت قبل را بر روی آن نمایش دهید. آیا عملکرد روش خوشه بندی شما مطلوب بوده است؟
+</p>
+```{r}
+worldData %>% .[,-1] %>% scale() %>% prcomp() -> pca
+data.frame(x = pca$x[,1], y = pca$x[,2], cluster = as.factor(clustered$cluster)) %>% ggplot(aes(x = x, y = y, color = cluster)) + geom_point(stat = "identity")
+```
+
+***
+
+<p dir="RTL">
+۸. با استفاده از داده روشی برای پیش بینی رشد اقتصادی ایران در سال آینده ارائه دهید.
+</p>
+```{r}
+data %>% filter(`Country Name` == "Iran, Islamic Rep.",`Indicator Code` %in%  Indicator) %>%
+  gather('year', 'val',`1960`:`2017`) %>% filter(!is.na(val)) %>% select(`Indicator Code`,year,val) %>% spread("Indicator Code","val") %>% na.omit() %>% mutate(year = as.numeric(year)) %>% lm(formula = NY.GDP.MKTP.KD.ZG ~ year) -> model
+model %>% summary()
+predict(model, data.frame(year = c(2019)))
+```
+
+***
+
+<p dir="RTL"> 
+۹. سوالهای ۵ تا ۷ را ابتدا برای ۲۰ شاخص سلامت سپس بر حسب ۲۰ شاخص آموزشی تکرار کنید.
+</p>
+```{r,warning=F}
+Indicatortemp2 = c(
+  "SP.UWT.TFRT",
+  "SP.REG.DTHS.ZS",
+  "SP.REG.BRTH.ZS",
+  "SP.POP.TOTL.MA.ZS",
+  "SP.POP.TOTL.FE.ZS",
+  "SP.POP.TOTL",
+  "SP.POP.GROW",
+  "SP.POP.DPND",
+  "SP.POP.BRTH.MF",
+  "SP.MTR.1519.ZS",
+  "SP.M18.2024.FE.ZS",
+  "SP.HOU.FEMA.ZS",
+  "SP.DYN.WFRT",
+  "SP.DYN.TO65.MA.ZS",
+  "SP.DYN.TO65.FE.ZS",
+  "SP.DYN.TFRT.IN",
+  "SP.DYN.LE00.IN",
+  "SP.DYN.IMRT.IN",
+  "SP.DYN.CONM.ZS",
+  "SP.DYN.CDRT.IN",
+  "SP.DYN.CBRT.IN",
+  "SP.DTH.REPT.ZS",
+  "SP.ADO.TFRT",
+  "SN.ITK.VITA.ZS",
+  "SN.ITK.SALT.ZS",
+  "SN.ITK.DFCT",
+  "SN.ITK.DEFC.ZS",
+  "SM.POP.TOTL.ZS",
+  "SM.POP.TOTL",
+  "SM.POP.REFG.OR",
+  "SM.POP.REFG",
+  "SM.POP.NETM",
+  "SH.VAC.TTNS.ZS",
+  "SH.UHC.OOPC.25.ZS",
+  "SH.UHC.OOPC.25.TO",
+  "SH.UHC.OOPC.10.ZS")
+k = 0;
+Indicator2 = c()
+for(code in  Indicatortemp2){
+  if(k == 20)
+    break();
+  IndicatorName = series %>% filter(`Series Code` == code) %>% .$`Indicator Name` %>% .[1]
+  worldData = data %>% filter(`Indicator Code` == code) %>% select(`Country Name` , `1996`:`2015`) %>% gather('year','val',`1996`:`2015`) %>% filter(!is.na(val))
+  IranData = worldData %>% filter(`Country Name` == "Iran, Islamic Rep.")
+  if(length(IranData$val) < 20)
+    next()
+  p = ggplot() + geom_boxplot(data = worldData,aes(x = year,y=val),outlier.colour = NA) +
+    geom_line(data = IranData,aes(x=year,y=val,group = 1),color = "blue") +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    ggtitle(IndicatorName) + 
+    scale_y_continuous(limits = c(min(quantile(worldData$val, 0.1),min(IranData$val)),max(quantile(worldData$val, 0.9),max(IranData$val))))
+  print(p)
+   Indicator2 = c(code ,  Indicator2)
+  k = k + 1
+}
+
+data %>% filter(`Indicator Code` %in%  Indicator2) %>% gather('year','val',`1960`:`2017`) %>% filter(!is.na(val)) %>% 
+  mutate(year = as.numeric(year)) %>% arrange(year) %>% group_by(`Country Name`,`Indicator Code`) %>% summarise(val = last(val)) %>% spread('Indicator Code','val') %>% drop_na() -> worldData
+worldData %>% .[,-1] %>% scale() %>% kmeans(centers = 3,nstart = 20) %>% .$cluster %>%
+  data.frame(Country = worldData$`Country Name`,cluster = .) -> clustered
+cluster1 = ""
+cluster2 = ""
+cluster3 = ""
+for(i in 1:length(clustered$Country)){
+  if(clustered[i,2] == 1){
+    cluster1 = paste(clustered[i,1],cluster1,sep = " , ")
+  }
+  if(clustered[i,2] == 2){
+    cluster2 = paste(clustered[i,1],cluster2,sep = " , ")
+  }
+  if(clustered[i,2] == 3){
+    cluster3 = paste(clustered[i,1],cluster3,sep = " , ")
+  }
+}
+print("cluster 1:")
+cluster1
+print("cluster 2:")
+cluster2
+print("cluster 3:")
+cluster3
+paste("iran : cluster",clustered[52,2])
+
+worldData %>% .[,-1] %>% scale() %>% prcomp() -> pca
+data.frame(x = pca$x[,1], y = pca$x[,2], cluster = as.factor(clustered$cluster)) %>% ggplot(aes(x = x, y = y, color = cluster)) + geom_point(stat = "identity")
+
+Indicatortemp3 = c(
+  "SE.PRM.AGES",
+  "SE.SEC.AGES",
+  "SE.PRM.ENRR.FE",
+  "SE.PRM.ENRR.MA",
+  "SE.PRM.ENRL.FE.ZS",
+  "SE.ENR.TERT.FM.ZS",
+  "SE.XPD.TOTL.GD.ZS",
+  "SE.XPD.PRIM.PC.ZS",
+  "SE.XPD.MTOT.ZS",
+  "SE.XPD.MTER.ZS",
+  "SE.SEC.ENRL.GC.FE.ZS",
+  "SE.ENR.PRIM.FM.ZS",
+  "SE.SEC.ENRR",
+  "SE.ENR.SECO.FM.ZS",
+  "SE.SEC.ENRL.FE.ZS",
+  "SE.TER.ENRR",
+  "SE.PRE.ENRR",
+  "SE.PRM.GINT.FE.ZS",
+  "SE.PRM.GINT.MA.ZS",
+  "SE.PRM.REPT.ZS",
+  "SE.XPD.TOTL.GD.ZS",
+  "SE.XPD.TOTL.GB.ZS",
+  "SE.XPD.TERT.ZS",
+  "SE.XPD.TERT.PC.ZS",
+  "SE.XPD.SECO.ZS",
+  "SE.XPD.SECO.PC.ZS",
+  "SE.XPD.PRIM.ZS",
+  "SE.PRM.DURS",
+  "SE.SEC.DURS",
+  "SE.PRE.DURS",
+  "SE.XPD.MSEC.ZS",
+  "SE.XPD.MPRM.ZS",
+  "SE.XPD.CTOT.ZS",
+  "SE.XPD.CTER.ZS",
+  "SE.XPD.CSEC.ZS",
+  "SE.XPD.CPRM.ZS",
+  "SE.TER.TCHR.FE.ZS",
+  "SE.TER.ENRR",
+  "SE.TER.ENRL.TC.ZS",
+  "SE.TER.CUAT.ST.ZS"
+)
+k = 0;
+Indicator3 = c()
+for(code in  Indicatortemp3){
+  if(k == 20)
+    break();
+  IndicatorName = series %>% filter(`Series Code` == code) %>% .$`Indicator Name` %>% .[1]
+  worldData = data %>% filter(`Indicator Code` == code) %>% select(`Country Name` , `1996`:`2015`) %>% gather('year','val',`1996`:`2015`) %>% filter(!is.na(val))
+  IranData = worldData %>% filter(`Country Name` == "Iran, Islamic Rep.")
+  if(length(IranData$val) < 20)
+    next()
+  p = ggplot() + geom_boxplot(data = worldData,aes(x = year,y=val),outlier.colour = NA) +
+    geom_line(data = IranData,aes(x=year,y=val,group = 1),color = "blue") +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    ggtitle(IndicatorName) + 
+    scale_y_continuous(limits = c(min(quantile(worldData$val, 0.1),min(IranData$val)),max(quantile(worldData$val, 0.9),max(IranData$val))))
+  print(p)
+   Indicator3 = c(code ,  Indicator3)
+  k = k + 1
+}
+
+data %>% filter(`Indicator Code` %in%  Indicator3) %>% gather('year','val',`1960`:`2017`) %>% filter(!is.na(val)) %>% 
+  mutate(year = as.numeric(year)) %>% arrange(year) %>% group_by(`Country Name`,`Indicator Code`) %>% summarise(val = last(val)) %>% spread('Indicator Code','val') %>% drop_na() -> worldData
+worldData %>% .[,-1] %>% scale() %>% kmeans(centers = 3) %>% .$cluster %>%
+  data.frame(Country = worldData$`Country Name`,cluster = .) -> clustered
+cluster1 = ""
+cluster2 = ""
+cluster3 = ""
+for(i in 1:length(clustered$Country)){
+  if(clustered[i,2] == 1){
+    cluster1 = paste(clustered[i,1],cluster1,sep = " , ")
+  }
+  if(clustered[i,2] == 2){
+    cluster2 = paste(clustered[i,1],cluster2,sep = " , ")
+  }
+  if(clustered[i,2] == 3){
+    cluster3 = paste(clustered[i,1],cluster3,sep = " , ")
+  }
+}
+print("cluster 1:")
+cluster1
+print("cluster 2:")
+cluster2
+print("cluster 3:")
+cluster3
+paste("iran : cluster",clustered[52,2])
+
+worldData %>% .[,-1] %>% scale() %>% prcomp() -> pca
+data.frame(x = pca$x[,1], y = pca$x[,2], cluster = as.factor(clustered$cluster)) %>% ggplot(aes(x = x, y = y, color = cluster)) + geom_point(stat = "identity")
+
+```
+
+***
+
+<p dir="RTL"> 
+۱۰. کشورهای دنیا را بر حسب ۶۰ شاخص اقتصادی، سلامت و آموزش با روش سلسله مراتبی خوشه بندی کرده و دندروگرام آن را رسم نمایید. اگر داده ها بر سه دسته تقسیم شوند ایران در کدام دسته می گنجد؟
+</p>
+```{r}
+AllIndicator = c(Indicator,Indicator2,Indicator3)
+data %>% filter(`Indicator Code` %in%  AllIndicator) %>% select(-X63) %>% gather('year','val',`1960`:`2017`) %>%
+  filter(!is.na(val)) %>% mutate(year = as.numeric(year)) %>% arrange(year) %>%
+  group_by(`Country Name`,`Indicator Code`) %>% summarise(val = last(val)) %>% spread('Indicator Code','val') %>% 
+  drop_na() %>% ungroup() -> worldData
+row.names(worldData) = worldData$`Country Name`
+worldData = worldData %>% select(-c(1,2))
+stats::dist(worldData[,-1],method = "euclidean") -> dist
+dist %>% hclust(method = "complete")->hclust
+hclust %>% plot(hang = -1,labels=worldData %>% row.names())
+rect.hclust(hclust, 3)
+```
+
+<p dir="RTL"> 
+میتوان دید که ایران در دسته سوم قرار دارد.
+</p>
+
+
+***
+
+<p dir="RTL"> 
+۱۱. سه یافته جالب از داده ها استخراج کنید.
+</p>
+
+<p dir="RTL"> 
+آیا بین سطح تحصیلات و سن ازدواج زنان رابطه معنا داری وجود دارد؟
+</p>
+```{r}
+data %>% filter(`Indicator Code` %in% c("SP.M15.2024.FE.ZS","SE.SEC.CUAT.UP.ZS")) %>%
+  gather('year','val',`1960`:`2017`) %>% filter(!is.na(val)) %>% select(`Country Name`,`Indicator Code`,year,val) %>%
+  mutate(year = as.numeric(year)) %>% group_by(`Country Name`,`Indicator Code`) %>% 
+  arrange(year) %>% summarise(val = last(val)) %>% spread(`Indicator Code`,val) %>% na.omit() %>%
+  select(country = 1,education = 2,marriage = 3) -> t1
+
+cor.test(t1$marriage,t1$education)
+```
+<p dir="RTL"> 
+مصرف انرژی با GDP رابطه دارد.
+</p>
+
+```{r}
+data %>% filter(`Indicator Code` %in% c("NY.GDP.PCAP.CD","EG.USE.PCAP.KG.OE")) %>%
+  gather('year','val',`1960`:`2017`) %>% filter(!is.na(val)) %>% select(`Country Name`,`Indicator Code`,year,val) %>%
+  mutate(year = as.numeric(year)) %>% group_by(`Country Name`,`Indicator Code`) %>% 
+  arrange(year) %>% summarise(val = last(val)) %>% spread(`Indicator Code`,val) %>% na.omit() %>%
+  select(country = 1,energy = 2,GDP = 3) -> t1
+ggplot() + geom_point(data = t1,aes(x = energy,y=GDP))
+cor.test(t1$energy,t1$GDP)
+```
+
